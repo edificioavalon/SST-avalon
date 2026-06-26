@@ -1,0 +1,20 @@
+{
+  "id": "avalon",
+  "nombre": "Edificio Avalon",
+  "nit": "800245101-1",
+  "direccion": "Calle 65 #9-07",
+  "email": "edificioavalonadm@gmail.com",
+  "unidades": "30",
+  "trabajadores": "4",
+  "contratistas_count": "2",
+  "admin_nombre": "Gloria Azcárate",
+  "admin_tel": "315 633 0171",
+  "color_primary": "#7C3AED",
+  "color_secondary": "#A855F7",
+  "emoji": "🏰",
+  "github_org": "edificioavalon",
+  "repo_name": "sst-avalon",
+  "admin_user": "c3madriz",
+  "admin_pass": "avalon2026",
+  "contratistas": []
+}
