@@ -21,5 +21,8 @@
   "repo_name": "sst-avalon",
   "admin_user": "c3madriz",
   "admin_pass": "avalon2026",
-  "contratistas": []
+  "contratistas": [
+    { "nombre": "Administración de Servicios y Seguridad El Tesoro", "nit": "900576015", "servicio": "Conserjería" },
+    { "nombre": "Adasco Ltda", "nit": "830080368", "servicio": "Aseo" }
+  ]
 }
