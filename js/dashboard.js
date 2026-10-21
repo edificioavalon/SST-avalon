@@ -114,22 +114,44 @@ function mkStat(icon, valor, label) {
            '<div class="stat-label">' + label + '</div></div>';
 }
 
+// Actividades hechas por mes. Cuenta los registros reales de las herramientas (igual que
+// Ejecución 2026) y también las casillas antiguas de ejecucion/mesN, para no perder meses viejos.
+var NODOS_ACTIVIDAD = { supervision: 'supervisiones', inspeccion: 'inspecciones', induccion: 'inducciones', mantenimiento: 'mantenimientos' };
+
+function cargarHechasPorMes() {
+    var base = 'edificios/' + window.edificioConfig.id + '/';
+    var anio = new Date().getFullYear();
+    var lecturas = [window.db.ref(base + 'ejecucion').once('value')].concat(ACTIVIDADES_PAT.map(function(act) {
+        return window.db.ref(base + NODOS_ACTIVIDAD[act.id]).once('value');
+    }));
+    return Promise.all(lecturas).then(function(snaps) {
+        var ej = snaps[0].val() || {};
+        var registros = ACTIVIDADES_PAT.map(function(act, i) { return Object.values(snaps[i + 1].val() || {}); });
+        var hechas = {};
+        for (var m = 1; m <= 12; m++) {
+            var mesData = ej['mes' + m] || {};
+            hechas[m] = {};
+            ACTIVIDADES_PAT.forEach(function(act, i) {
+                hechas[m][act.id] = !!(mesData[act.id] && mesData[act.id].completado) ||
+                                    filtrarPorMesQH(registros[i], m - 1, anio).length > 0;
+            });
+        }
+        return hechas;
+    });
+}
+
+function contarHechas(mes) {
+    return ACTIVIDADES_PAT.filter(function(act) { return mes[act.id]; }).length;
+}
+
 function cargarProgresoPAT() {
     var cfg = window.edificioConfig;
     var mesInicio = cfg.mes_inicio || 1;
-    window.db.ref('edificios/' + cfg.id + '/ejecucion').once('value').then(function(snap) {
-        var data = snap.val() || {};
+    cargarHechasPorMes().then(function(hechasPorMes) {
         var mesesTotal = 12 - mesInicio + 1;
         var completadas = 0, total = mesesTotal * ACTIVIDADES_PAT.length;
 
-        for (var m = mesInicio; m <= 12; m++) {
-            var clvMes = 'mes' + m;
-            if (data[clvMes]) {
-                ACTIVIDADES_PAT.forEach(function(act) {
-                    if (data[clvMes][act.id] && data[clvMes][act.id].completado) completadas++;
-                });
-            }
-        }
+        for (var m = mesInicio; m <= 12; m++) completadas += contarHechas(hechasPorMes[m]);
 
         var pct = Math.round((completadas / total) * 100);
         document.getElementById('dash-pat-bar').style.width = pct + '%';
@@ -150,17 +172,11 @@ function renderMesesGrid() {
     var hoy = new Date();
     var mesActual = hoy.getMonth() + 1;
 
-    window.db.ref('edificios/' + cfg.id + '/ejecucion').once('value').then(function(snap) {
-        var data = snap.val() || {};
+    cargarHechasPorMes().then(function(hechasPorMes) {
         var html = '';
 
         for (var m = mesInicio; m <= 12; m++) {
-            var clvMes = 'mes' + m;
-            var mesData = data[clvMes] || {};
-            var hechas = 0;
-            ACTIVIDADES_PAT.forEach(function(act) {
-                if (mesData[act.id] && mesData[act.id].completado) hechas++;
-            });
+            var hechas = contarHechas(hechasPorMes[m]);
 
             var estado = '';
             var esActual = m === mesActual;
@@ -171,11 +187,10 @@ function renderMesesGrid() {
             } else if (hechas > 0) {
                 estado = 'en-progreso';
             } else {
-                estado = m < mesActual ? 'pendiente' : 'pendiente';
+                estado = 'pendiente';
             }
 
             var etiEstado = hechas === ACTIVIDADES_PAT.length ? '✅' : hechas > 0 ? '⏳' : m < mesActual ? '⚠️' : '—';
-            var m2 = String(m);
 
             html += '<div class="mes-card ' + estado + (esActual ? ' actual' : '') + '" ' +
                     'onclick="window.mostrarSeccion(\'ejecucion\')" title="' + MES_NOMBRES[m-1] + '">' +
@@ -203,14 +218,10 @@ function cargarStatsExtra() {
     });
 
     // Inspecciones Realizadas — meses (desde mes_inicio) con supervisión o inspección completada
-    window.db.ref('edificios/' + cfg.id + '/ejecucion').once('value').then(function(snap) {
-        var data = snap.val() || {};
+    cargarHechasPorMes().then(function(hechasPorMes) {
         var mesesConInspeccion = 0;
         for (var m = mesInicio; m <= 12; m++) {
-            var mesData = data['mes' + m];
-            if (mesData && ((mesData.supervision && mesData.supervision.completado) || (mesData.inspeccion && mesData.inspeccion.completado))) {
-                mesesConInspeccion++;
-            }
+            if (hechasPorMes[m].supervision || hechasPorMes[m].inspeccion) mesesConInspeccion++;
         }
         var totalMeses = 12 - mesInicio + 1;
         var el = document.getElementById('dash-stat-inspecciones');
